@@ -195,7 +195,6 @@ float AS5050::deltaAngleDegrees(){
 }
 float AS5050::deltaAngleRad(){
      return (deltaAngle())*AS5050_TAU/(float)AS5050_ANGULAR_RESOLUTION;
-
 }
 
 void AS5050::setHome(){
