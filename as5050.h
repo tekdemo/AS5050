@@ -129,13 +129,17 @@ class AS5050{
       unsigned int transaction;      //holds the error data from angular reads
       unsigned int status;           //holds the AS5050 error data from other sources
     }error;
-    //*/
-    //ifdef AS5050_DEBUG
+    
+    //Store the current gain value, so it can be recorded
     byte gain;
     
-    //endif
-  private:
-    byte _pin;
+    //Keep track of how many full rotations we've gone through
+    int rotations;
+
+
+    private:
+        byte _pin;
+        int _last_angle;
 };
 
 #endif

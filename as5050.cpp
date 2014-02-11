@@ -63,6 +63,10 @@ AS5050::AS5050(byte pin, byte spi_speed){
   //pull pin mode low to assert slave
   //digitalWrite(_pin,LOW);
 
+  //do a single read to ensure a known startup state
+  _last_angle=angle();
+  //Since we're not moving, make sure our rotations doesn't glitch.
+  rotations=0;
 };
 
 unsigned int AS5050::send(unsigned int reg_a){
@@ -150,7 +154,14 @@ int AS5050::angle(){
   #endif
   
   //TODO this needs some work to avoid magic numbers
-  return (data&0x3FFE)>>2; //strip away alarm bits, then parity and error flags
+  int angle=(data&0x3FFE)>>2; //strip away alarm bits, then parity and error flags
+  
+  //track rollovers for continous angle monitoring
+  if(_last_angle>768 && angle<=256)rotations+=1;
+  else if(_last_angle<256 && angle>=768)rotations-=1;
+  _last_angle=angle;
+  
+  return angle;
 }
 
 float AS5050::angleDegrees(){
@@ -173,9 +184,6 @@ float AS5050::wrapAngle(float angle){
    return atan2(sin(angle),cos(angle));
 }
 
-//TODO Add in a rotation counter, for number of rotations since start
-
-//TODO Add in rotation counter, that starts from physical zero
 
 unsigned int AS5050::handleErrors(){  //now, handle errors: 
   unsigned int error_t=error.transaction; //save current register
@@ -187,11 +195,11 @@ unsigned int AS5050::handleErrors(){  //now, handle errors:
     switch(error_t&(RES_ALARM_HIGH|RES_ALARM_LOW)){
       case RES_ALARM_HIGH: //gain too high, decrease gain
         gain=read(REG_GAIN_CONTROL); //get information about current gain
-        write(REG_GAIN_CONTROL,gain--);  //increment gain and send it back
+        write(REG_GAIN_CONTROL,--gain);  //increment gain and send it back
         break;
       case RES_ALARM_LOW: //gain too low, increase gain
         gain=read(REG_GAIN_CONTROL); //get information about current gain
-        write(REG_GAIN_CONTROL,gain++); //increment gain and send it back
+        write(REG_GAIN_CONTROL,++gain); //increment gain and send it back
         break;
       default://General errors
         //TODO Read and handle DAC overflow issues and the like.
