@@ -63,11 +63,11 @@ AS5050::AS5050(byte pin, byte spi_speed){
   //pull pin mode low to assert slave
   //digitalWrite(_pin,LOW);
 
-  //do a single read to ensure a known startup state
+  //Read angle twice to initialize chip and get to a known good state
+  //Reading once won't work, as _last_angle will be set incorrectly
+  angle();
   _init_angle=angle();
-  //record our starting position 
-  _last_angle=_init_angle;
-  //angle() will glitch on startup if it's >768, so reset it since it might be wrong
+  //angle() will glitch on startup if it's >768, reset it
   rotations=0;
 };
 
