@@ -101,6 +101,8 @@ OR with AS_READ/AS_WRITE before sending command
 #define AS5050_MAX_GAIN 31 //5 bits of storage
 #define AS5050_MIN_GAIN 0
 
+//Implimentation specific value of tau
+#define AS5050_TAU 6.283185307179586232
 
 //use unions to quickly access data values
 union spi_data{
@@ -120,11 +122,23 @@ class AS5050{
 
     unsigned int read(unsigned int);
     unsigned int write(unsigned int,unsigned int);
-    int angle();
     unsigned int handleErrors();
+    //These functions return the physical angle on the chip
+    int angle();
     float angleDegrees();
     float angleRad();
-    float wrapAngle(float);
+    //These functions return the absolute angle from initial startup
+    long int totalAngle();
+    float totalAngleDegrees();
+    float totalAngleRad();
+    //These functions return the deltas from initial startup, so it changes on start position
+    long int deltaAngle();
+    float deltaAngleDegrees();
+    float deltaAngleRad();
+    //Reset the home the deltas/totals will use
+    void setHome();
+    
+    //Make errors accessible from outside the class if needed
     struct error_struct{
       unsigned int transaction;      //holds the error data from angular reads
       unsigned int status;           //holds the AS5050 error data from other sources
@@ -140,6 +154,7 @@ class AS5050{
     private:
         byte _pin;
         int _last_angle;
+        int _init_angle;
 };
 
 #endif

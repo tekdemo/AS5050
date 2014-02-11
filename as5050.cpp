@@ -64,8 +64,11 @@ AS5050::AS5050(byte pin, byte spi_speed){
   //digitalWrite(_pin,LOW);
 
   //do a single read to ensure a known startup state
-  _last_angle=angle();
-  //Since we're not moving, make sure our rotations doesn't glitch.
+  angle();
+  _init_angle=angle();
+  //record our starting position 
+  _last_angle=_init_angle;
+  //angle() will glitch on startup if it's >768, so reset it since it might be wrong
   rotations=0;
 };
 
@@ -109,7 +112,7 @@ unsigned int AS5050::read(unsigned int reg){
 }
 
 
-//TODO: Make this work right.
+//FIXME: Make the Write function work.
 unsigned int AS5050::write(unsigned int reg,unsigned int data){
   
   //Prepare register data
@@ -123,7 +126,6 @@ unsigned int AS5050::write(unsigned int reg,unsigned int data){
   send(reg);          //send the register we wish to write to
   send(data);         //set the data we want in there
   data=send(REG_NOP); //Get confirmation from chip
-  //FIXME Write doesn't work as expected
         
   //save error and parity data
   error.transaction=data & (RES_ERROR_FLAG); //save error data
@@ -163,27 +165,45 @@ int AS5050::angle(){
   
   return angle;
 }
-
 float AS5050::angleDegrees(){
-  //Since map only does integer math, hack in better precision
-  //FIXME Change from map to custom function for proper floating point resolution
-  return map(angle(),0,AS5050_ANGULAR_RESOLUTION,0,360*3)/3.0;
+    //Rewrite of arduino's map function, to make sure we don't lose resolution
+    //return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+    return angle()*360/(float)AS5050_ANGULAR_RESOLUTION;
 }
-
 float AS5050::angleRad(){
-  //Since map only does integer math, hack in better precision
-  //TODO return angle in radians
-  return  0.1;//(float)map(angle,0,4096,-PI*300,PI*300)/(float)600;
+  //return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+  return angle()*(AS5050_TAU)/(float)AS5050_ANGULAR_RESOLUTION;
 }
 
-float AS5050::wrapAngle(float angle){
-   //Ensure all angles are between -pi and pi
-   //takes ~423us for atan
-   //This is faster than the 485us for my crappy version.
-   
-   return atan2(sin(angle),cos(angle));
+
+
+long int AS5050::totalAngle(){
+    return angle()+rotations*1024 ;
+}
+float AS5050::totalAngleDegrees(){
+    return angleDegrees()+360*rotations;
+}
+float AS5050::totalAngleRad(){
+    return angleDegrees()+AS5050_TAU*rotations;
 }
 
+
+long int AS5050::deltaAngle(){
+    return (angle()-_init_angle)+rotations*1024;
+}
+float AS5050::deltaAngleDegrees(){
+    return (deltaAngle())*360/(float)AS5050_ANGULAR_RESOLUTION;
+}
+float AS5050::deltaAngleRad(){
+     return (deltaAngle())*AS5050_TAU/(float)AS5050_ANGULAR_RESOLUTION;
+
+}
+
+void AS5050::setHome(){
+    //Reset the home for the deltas/total functions
+    rotations=0;
+    _init_angle=0;
+}
 
 unsigned int AS5050::handleErrors(){  //now, handle errors: 
   unsigned int error_t=error.transaction; //save current register
