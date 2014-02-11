@@ -95,10 +95,11 @@ unsigned int AS5050::read(unsigned int reg){
   reg|= __builtin_parity(reg);  //set in the parity bit
 
   send(reg);              //send data
-  //delayMicroseconds(1);       //hold timebetween transactions:50ns
-  reg=send(REG_NOP); //recieve response from chip
+  //delayMicroseconds(1);       //hold time between transactions:50ns
+  reg=send(REG_NOP); //receive response from chip
   
-  error.transaction|=__builtin_parity(reg&(~RES_PARITY)) != (reg&RES_PARITY); //save parity errors
+  //Save the parity error for analysis
+  error.transaction|=__builtin_parity(reg&(~RES_PARITY)) != (reg&RES_PARITY);
 
   return reg; //remove error and parity bits  
 }
@@ -116,9 +117,10 @@ unsigned int AS5050::write(unsigned int reg,unsigned int data){
   data|=__builtin_parity(data);  //Set the parity bit on the data
 
   send(reg);          //send the register we wish to write to
-  send(data);    //set the data we want in there
+  send(data);         //set the data we want in there
   data=send(REG_NOP); //Get confirmation from chip
-  
+  //FIXME Write doesn't work as expected
+        
   //save error and parity data
   error.transaction=data & (RES_ERROR_FLAG); //save error data
   error.transaction|=__builtin_parity(data&(~RES_PARITY)) != (data&RES_PARITY); //save parity errors
@@ -147,17 +149,19 @@ int AS5050::angle(){
   if(error.transaction)handleErrors();
   #endif
   
-  //this needs some work
-  return (data&0x3FFE)>>2; //strip away alarm bits, then parity and error flag
+  //TODO this needs some work to avoid magic numbers
+  return (data&0x3FFE)>>2; //strip away alarm bits, then parity and error flags
 }
 
 float AS5050::angleDegrees(){
   //Since map only does integer math, hack in better precision
-  return map(angle(),0,AS5050_ANGULAR_RESOLUTION,0,360*3)/3.0; //hack in slightly better accuracy
+  //FIXME Change from map to custom function for proper floating point resolution
+  return map(angle(),0,AS5050_ANGULAR_RESOLUTION,0,360*3)/3.0;
 }
 
 float AS5050::angleRad(){
   //Since map only does integer math, hack in better precision
+  //TODO return angle in radians
   return  0.1;//(float)map(angle,0,4096,-PI*300,PI*300)/(float)600;
 }
 
@@ -167,9 +171,11 @@ float AS5050::wrapAngle(float angle){
    //This is faster than the 485us for my crappy version.
    
    return atan2(sin(angle),cos(angle));
-
 }
 
+//TODO Add in a rotation counter, for number of rotations since start
+
+//TODO Add in rotation counter, that starts from physical zero
 
 unsigned int AS5050::handleErrors(){  //now, handle errors: 
   unsigned int error_t=error.transaction; //save current register
@@ -181,17 +187,17 @@ unsigned int AS5050::handleErrors(){  //now, handle errors:
     switch(error_t&(RES_ALARM_HIGH|RES_ALARM_LOW)){
       case RES_ALARM_HIGH: //gain too high, decrease gain
         gain=read(REG_GAIN_CONTROL); //get information about current gain
-        write(REG_GAIN_CONTROL,gain--);  //incriment gain and send it back
+        write(REG_GAIN_CONTROL,gain--);  //increment gain and send it back
         break;
       case RES_ALARM_LOW: //gain too low, increase gain
         gain=read(REG_GAIN_CONTROL); //get information about current gain
-        write(REG_GAIN_CONTROL,gain++); //incriment gain and send it back
+        write(REG_GAIN_CONTROL,gain++); //increment gain and send it back
         break;
       default://General errors
-        //Read and handle DAC overflow issues and the like.
-        //TODO : Currently just disregards everything and exits.  
+        //TODO Read and handle DAC overflow issues and the like.
+        //Currently just disregards everything and exits.  
         break;
-      }//sw
+      }//switch
 
     error.transaction=0;               //Reset the transaction error register
 
@@ -199,7 +205,7 @@ unsigned int AS5050::handleErrors(){  //now, handle errors:
     //otherwise, this command can handle it later
     error.status=read(REG_CLEAR_ERROR) ;
 
-    //If the error is still there, reset the AS5050 to vaporize any errors
+    //If the error is still there, reset the AS5050 to remove them
     #if AS5050_RESET_ON_ERRORS==1
     if(error.status)write(REG_SOFTWARE_RESET,DATA_SWRESET_SPI);
     #endif
