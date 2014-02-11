@@ -4,7 +4,7 @@
 // communication with the AS5050 magnetic rotary encoder IC.
 //////////////////////////////////////////////////////////////////////////
 // Written and maintained by Dan Sheadel (tekdemo@gmail.com)
-// Code available at http://github.com/tekdemo 
+// Code available at https://github.com/tekdemo/AS5050
 //////////////////////////////////////////////////////////////////////////
 //
 // This program is free software; you can redistribute it 
@@ -101,10 +101,10 @@ OR with AS_READ/AS_WRITE before sending command
 #define AS5050_MAX_GAIN 31 //5 bits of storage
 #define AS5050_MIN_GAIN 0
 
-//Implimentation specific value of tau
+//Implementation specific value of tau
 #define AS5050_TAU 6.283185307179586232
 
-//use unions to quickly access data values
+//use unions to quickly parse multi-byte data from SPI
 union spi_data{
   unsigned int value;
   struct{
@@ -137,6 +137,9 @@ class AS5050{
     float deltaAngleRad();
     //Reset the home the deltas/totals will use
     void setHome();
+    
+    //
+    
     
     //Make errors accessible from outside the class if needed
     struct error_struct{

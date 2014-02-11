@@ -4,7 +4,7 @@
 // communication with the AS5050 magnetic rotary encoder IC.
 //////////////////////////////////////////////////////////////////////////
 // Written and maintained by Dan Sheadel (tekdemo@gmail.com)
-// Code available at http://github.com/tekdemo 
+// Code available at https://github.com/tekdemo/AS5050
 //////////////////////////////////////////////////////////////////////////
 //
 // This program is free software; you can redistribute it 
@@ -57,14 +57,13 @@ AS5050::AS5050(byte pin, byte spi_speed){
 
   //Prepare the SPI interface
   pinMode(_pin,OUTPUT); 
-  SPI.setClockDivider(spi_speed);  //this board supports speedy! :D
+  SPI.setClockDivider(spi_speed);       //this board supports speedy! :D
   SPI.setBitOrder(MSBFIRST);            //Match the expected bit order
   SPI.setDataMode(SPI_MODE1);           //falling edge (CPOL 1), low idle (CPHA 0);
   //pull pin mode low to assert slave
   //digitalWrite(_pin,LOW);
 
   //do a single read to ensure a known startup state
-  angle();
   _init_angle=angle();
   //record our starting position 
   _last_angle=_init_angle;
