@@ -1,6 +1,6 @@
 AS5050 Arduino Lib
 ====================
-This is a utility library for interfacing with the AS5050 magnetic rotary encode chip. While still a work in progress, it currently can do the following:
+This is a utility library for interfacing with the AS5050 magnetic rotary encoder chip. While still a work in progress, it currently can do the following:
 
 Current Features
 ----------------
