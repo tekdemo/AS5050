@@ -39,7 +39,8 @@ void loop(){
     oldmillis=millis();
     
     //Do a printout of some of the different ways we can read the angle
-    Serial.print("Angle:");      Serial.print(mag.angle());
+    Serial.print("Angle:");      Serial.print(mag.angle
+    Serial.print("\tR:");      Serial.print(mag.rotations);
     Serial.print("\tDegrees:");  Serial.print(mag.angleDegrees());
     Serial.print("\tRads:");     Serial.print(mag.angleRad());
     Serial.print("\tdAngle:");   Serial.print(mag.deltaAngle());
