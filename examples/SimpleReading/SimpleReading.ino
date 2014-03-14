@@ -11,7 +11,7 @@
 
 //I don't know why, but you have to include SPI. before the AS5050.h
 #include <SPI.h>
-#include <as5050.h>
+#include <AS5050.h>
 
 //Initialize with the chip select pin, and with the clock divider.
 #define CHIP_SELECT_PIN 9

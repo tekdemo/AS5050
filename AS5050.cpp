@@ -35,7 +35,7 @@
 
 
 #include "Arduino.h"
-#include "as5050.h"
+#include "AS5050.h"
 
 #ifndef _SPI_H_INCLUDED
 #warning +============================================+
