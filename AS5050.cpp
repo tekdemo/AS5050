@@ -111,7 +111,7 @@ unsigned int AS5050::read(unsigned int reg){
 }
 
 
-//FIXME: Make the Write function work.
+//FIXME: Make the Write return and verify the response.
 unsigned int AS5050::write(unsigned int reg,unsigned int data){
   
   //Prepare register data
