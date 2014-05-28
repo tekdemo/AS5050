@@ -49,6 +49,15 @@
   #define AS5050_RESET_ON_ERRORS 1
 #endif
 
+//Number of averaged samples for a given angle
+//You really want this to be a multiple of 2 so the compiler can optimize it
+#ifndef NUM_ANGLE_SAMPLES
+  #define  NUM_ANGLE_SAMPLES 4
+#endif
+
+
+
+
 //Command values for reading and writing
 #define AS_WRITE  (0x0000)
 #define AS_READ   (0x8000)

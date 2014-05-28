@@ -136,8 +136,13 @@ unsigned int AS5050::write(unsigned int reg,unsigned int data){
 int AS5050::angle(){
   //This function strips out the error and parity 
   //data in the data frame, and handles the errors
-  unsigned int data=read(REG_ANGLE);
+  unsigned int data(REG_ANGLE);
+  unsigned int angle=_last_angle;
+  unsigned int anglesum=0;              //start a counter for our averages
   
+  for(byte i=0;i<NUM_ANGLE_SAMPLES; i++){
+  
+  data=read(REG_ANGLE);
   /* Response from chip is this:
    14 | 13 | 12 ... 2                       | 1  | 0
    AH | AL |  <data 10bit >                 | EF | PAR
@@ -145,30 +150,42 @@ int AS5050::angle(){
   
   //save error data to the error register
   error.transaction=(data|RES_ALARM_HIGH|RES_ALARM_LOW);
-  //Check parity of transaction
+  //Check parity of transaction, and set error.transaction&1 high if there's an error
   error.transaction|=__builtin_parity(data&(~RES_PARITY)) != (data&RES_PARITY);
   
-  
-  //Automatically handle errors if we've enabled it
-  #if AS5050_AUTO_ERROR_HANDLING==1
-  if(error.transaction){
-    handleErrors();
-    //If there's a parity error, the chip responds with an angle of 0, so just use the last angle to prevent glitching
-    if(error.transaction&RES_PARITY) return _last_angle;
+  //We need to make sure that there's no parity errors, or else our angle will be corrupted.
+  if( ! (error.transaction&RES_PARITY) ){
+    //TODO this needs some work to avoid magic numbers
+    angle=(data&0x3FFE)>>2; //strip away alarm bits, then parity and error flags
   }
-  #endif
-  
-  //TODO this needs some work to avoid magic numbers
-  int angle=(data&0x3FFE)>>2; //strip away alarm bits, then parity and error flags
+  else{
+      //leave angle alone; It will be set to _last_angle on the first sample, or 
+      //previous angle on subsequent samples.
 
+  }
+
+  //keep up our running sum
+  anglesum+=angle;
+  
+  //Automatically handle errors if we've enabled it, to avoid contaminating the next sample.
+  #if AS5050_AUTO_ERROR_HANDLING==1
+  if(error.transaction){     handleErrors();   }
+  #endif
+
+  delayMicroseconds(1);
+  }//end of sampling.
+  
+  //average samples and find true angle
+  angle=(anglesum+NUM_ANGLE_SAMPLES/2)/NUM_ANGLE_SAMPLES; //the anglesum+numsamples/2 performs fair rounding
+  
   //track rollovers for continous angle monitoring
   if(_last_angle>768 && angle<=256)rotations+=1;
   else if(_last_angle<256 && angle>=768)rotations-=1;
   _last_angle=angle;
 
   return angle;
-
 }
+
 float AS5050::angleDegrees(){
     //Rewrite of arduino's map function, to make sure we don't lose resolution
     //return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
