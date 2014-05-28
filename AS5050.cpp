@@ -151,18 +151,23 @@ int AS5050::angle(){
   
   //Automatically handle errors if we've enabled it
   #if AS5050_AUTO_ERROR_HANDLING==1
-  if(error.transaction)handleErrors();
+  if(error.transaction){
+    handleErrors();
+    //If there's a parity error, the chip responds with an angle of 0, so just use the last angle to prevent glitching
+    if(error.transaction&RES_PARITY) return _last_angle;
+  }
   #endif
   
   //TODO this needs some work to avoid magic numbers
   int angle=(data&0x3FFE)>>2; //strip away alarm bits, then parity and error flags
-  
+
   //track rollovers for continous angle monitoring
   if(_last_angle>768 && angle<=256)rotations+=1;
   else if(_last_angle<256 && angle>=768)rotations-=1;
   _last_angle=angle;
-  
+
   return angle;
+
 }
 float AS5050::angleDegrees(){
     //Rewrite of arduino's map function, to make sure we don't lose resolution
