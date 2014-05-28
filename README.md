@@ -7,6 +7,7 @@ Current Features
 ----------------
 - Convert raw angular data to degrees or radians for integration into other code
 - Track the total rotation from either a physical or relative position.
+- Automatically samples multiple angles per read operation
 - utility functions for reading and writing on-chip registers
 - Header with significant documentation of chip data, including register, addresses, protocol, and responses.
 - Automatic handling of internal gain. 
