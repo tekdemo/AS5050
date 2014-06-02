@@ -152,8 +152,9 @@ class AS5050{
     
     //Make errors accessible from outside the class if needed
     struct error_struct{
-      unsigned int transaction;      //holds the error data from angular reads
-      unsigned int status;           //holds the AS5050 error data from other sources
+	byte parity;		//will be non-zero if there's a parity error
+	unsigned int transaction;      //holds the error data from angular reads
+	unsigned int status;           //holds the AS5050 error data from other sources
     }error;
     
     //Store the current gain value, so it can be recorded

@@ -151,17 +151,18 @@ int AS5050::angle(){
   //save error data to the error register
   error.transaction=(data|RES_ALARM_HIGH|RES_ALARM_LOW);
   //Check parity of transaction, and set error.transaction&1 high if there's an error
-  error.transaction|=__builtin_parity(data&(~RES_PARITY)) != (data&RES_PARITY);
+  error.parity=__builtin_parity(data&(~RES_PARITY)) != (data&RES_PARITY);
+  error.transaction|=error.parity;
+  
   
   //We need to make sure that there's no parity errors, or else our angle will be corrupted.
-  if( ! (error.transaction&RES_PARITY) ){
+  if(!error.parity ){
     //TODO this needs some work to avoid magic numbers
     angle=(data&0x3FFE)>>2; //strip away alarm bits, then parity and error flags
   }
   else{
       //leave angle alone; It will be set to _last_angle on the first sample, or 
       //previous angle on subsequent samples.
-
   }
 
   //keep up our running sum
@@ -172,7 +173,10 @@ int AS5050::angle(){
   if(error.transaction){     handleErrors();   }
   #endif
 
-  delayMicroseconds(1);
+  //TODO make sure that this can run continuously without exceeding chip hold times
+  delayMicroseconds(10);
+  
+  
   }//end of sampling.
   
   //average samples and find true angle
