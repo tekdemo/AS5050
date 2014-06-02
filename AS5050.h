@@ -133,7 +133,8 @@ class AS5050{
     unsigned int write(unsigned int,unsigned int);
     unsigned int handleErrors();
     //These functions return the physical angle on the chip
-    int angle();
+    int raw_angle();	//returns raw angle direct from chip
+    int angle();	//returns sampled averages and counts rollovers
     float angleDegrees();
     float angleRad();
     //These functions return the absolute angle from initial startup
@@ -163,11 +164,13 @@ class AS5050{
     //Keep track of how many full rotations we've gone through
     int rotations;
 
-
+    //Set to true to reverse the angles returned by this library
+    bool mirror;
     private:
         byte _pin;
         int _last_angle;
         int _init_angle;
+
 };
 
 #endif
