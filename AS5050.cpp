@@ -171,7 +171,7 @@ int AS5050::angle(){
 	int _rotations=rotations; //work with a local copy to make function re-entrant when called from interrupts
 	
 	
-	/*BUG : near the zero crossing, one of the samples will jump to 1024 
+	/*BUG : near the zerog crossing, one of the samples will jump to 1024 
 	The resulting data looks like this:
 	1024
 	1024
@@ -191,10 +191,6 @@ int AS5050::angle(){
 			//undo the latest read, and use the last known good data
 			angle=last_sample;
 		}
-		else{
-			//preserve the good data for future possible errors
-			last_sample=angle;
-		}
 		
 		//keep up our running sum
 		anglesum+=angle;
@@ -204,6 +200,9 @@ int AS5050::angle(){
 		if(last_sample>768 && angle<=256)_rotations+=1;
 		else if(last_sample<256 && angle>=768)_rotations-=1;
 		
+		//preserve the good data for future possible errors
+		last_sample=angle;
+
 		
 		//If we did encounter errors, we need to correct them before the next sample.
 		if(error.transaction){	handleErrors();	}
