@@ -90,20 +90,23 @@ OR with AS_READ/AS_WRITE before sending command
 #define RES_ERROR_ANGLE    (RES_PARITY| RES_ERROR_FLAG|RES_ALARM_HIGH|RES_ALARM_LOW) 
 
 //Error Status Register
-#define ERR_PARITY    (1<<13)
-#define ERR_CLKMON    (1<<12)
-#define ERR_ADDMON    (1<<11)
-//#define RES_ERR_RESERVED3  (1<<10)
-#define ERR_WOW       (1<<9)
-#define ERR_MODE      (1<<8)	
-//#define RES_ERR_RESERVED6  (1<<7)
-//#define RES_ERR_RESERVED7  (1<<6)
-#define ERR_DACOV     (1<<5)	// DAC overflow
-#define ERR_DSPOV     (1<<4)    //DSP PRocessor overflow
-#define ERR_RANERR    (1<<3)	//Range error
-#define ERR_DSPALO    (1<<2)	//DSP Alarm low
-#define ERR_DSPAHI    (1<<1)	//DSP Alarm High
-//#define RES_ERR_RESERVED13  (1<<0)
+#define ERR_PARITY    (1<<0)
+#define ERR_CLKMON    (1<<1)
+#define ERR_ADDMON    (1<<2)
+//#define RES_ERR_RESERVED3  (1<<3)
+#define ERR_WOW       (1<<4)
+#define ERR_MODE      (1<<5)	
+//#define RES_ERR_RESERVED6  (1<<6)
+//#define RES_ERR_RESERVED7  (1<<7)
+#define ERR_DACOV     (1<<8)	// DAC overflow
+#define ERR_DSPOV     (1<<9)    //DSP PRocessor overflow
+#define ERR_RANERR    (1<<10)	//Range error
+#define ERR_DSPALO    (1<<11)	//DSP Alarm low
+#define ERR_DSPAHI    (1<<12)	//DSP Alarm High
+//#define RES_ERR_RESERVED13  (1<<13)
+
+
+
 
 //Set various limits on some values
 #define AS5050_ANGULAR_RESOLUTION 1024
