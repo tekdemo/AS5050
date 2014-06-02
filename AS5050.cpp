@@ -136,7 +136,7 @@ unsigned int AS5050::write(unsigned int reg,unsigned int data){
 int AS5050::angle(){
   //This function strips out the error and parity 
   //data in the data frame, and handles the errors
-  unsigned int data(REG_ANGLE);
+  unsigned int data;
   unsigned int angle=_last_angle;
   unsigned int anglesum=0;              //start a counter for our averages
   
