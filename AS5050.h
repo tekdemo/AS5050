@@ -67,7 +67,7 @@
 Shifted 1 to make room for parity bit
 OR with AS_READ/AS_WRITE before sending command
 */
-#define REG_POWER_ON_RESET (0x3F22)
+#define REG_POWER_ON_RESET (0x3F22) //write 0x5A to this to deactivate power on reset
 #define REG_SOFTWARE_RESET (0x3C00) 
 #define REG_MASTER_RESET   (0x33A5)
 #define REG_CLEAR_ERROR    (0x3380)/*Read to reset errors*/

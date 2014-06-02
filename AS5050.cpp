@@ -63,12 +63,19 @@ AS5050::AS5050(byte pin, byte spi_speed){
   //pull pin mode low to assert slave
   //digitalWrite(_pin,LOW);
 
+  //Reboot the chip, in case there were issues during various transmissions
+  write(REG_MASTER_RESET,0x0);
+  
+  
   //Read angle twice to initialize chip and get to a known good state
   //Reading once won't work, as _last_angle will be set incorrectly
   angle();
   _init_angle=angle();
   //angle() will glitch on startup if it's >768, reset it
   rotations=0;
+  
+  //Set to True to reverse the angle returned by the library
+  mirror=false;
 };
 
 unsigned int AS5050::send(unsigned int reg_a){
@@ -344,7 +351,8 @@ unsigned int AS5050::handleErrors(){  //now, handle errors:
 
 	//If the error is still there, reset the AS5050 to attempt to fix it
 	#if AS5050_RESET_ON_ERRORS==1
-	if(error.status)write(REG_SOFTWARE_RESET,DATA_SWRESET_SPI);
+	//if(error.status)write(REG_SOFTWARE_RESET,DATA_SWRESET_SPI);
+	if(error.status)write(REG_MASTER_RESET,0x0);
 	#endif
 	}
 
