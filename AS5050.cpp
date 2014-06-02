@@ -107,7 +107,8 @@ unsigned int AS5050::read(unsigned int reg){
   
   //Save the parity error for analysis
   error.parity=__builtin_parity(reg&(~RES_PARITY)) != (reg&RES_PARITY);
-  error.transaction|=error.parity; //save parity errors
+  error.transaction|=error.parity;
+  error.transaction|=reg&RES_ERROR_FLAG;
 
   return reg; //remove error and parity bits  
 }
@@ -131,7 +132,9 @@ unsigned int AS5050::write(unsigned int reg,unsigned int data){
   //save error and parity data
   error.transaction=data & (RES_ERROR_FLAG); //save error data
   error.parity=__builtin_parity(data&(~RES_PARITY)) != (data&RES_PARITY);
-  error.transaction|=error.parity; //save parity errors
+  error.transaction|=error.parity;
+  error.transaction|=data&RES_ERROR_FLAG;
+
  
   return data;      //remove parity and EF bits and return data. 
 };  
@@ -148,18 +151,30 @@ int AS5050::raw_angle(){
 	AH | AL |  <data 10bit >                 | EF | PAR
 	*/
 
-	//save error data to the error register
-	error.transaction=(data|RES_ALARM_HIGH|RES_ALARM_LOW);
-	//Check parity of transaction, and set error.transaction&1 high if there's an error
-	error.parity=__builtin_parity(data&(~RES_PARITY)) != (data&RES_PARITY);
-	error.transaction|=error.parity;
-
+	//Parity data is generated in read() function
+	
 	//TODO this needs some work to avoid magic numbers
 	angle=(data&0x3FFE)>>2; //strip away alarm bits, then parity and error flags
 	
 	//Allow for the user to mirror the rotation, in case the angle seems backwards
 	if(mirror)angle=AS5050_ANGULAR_RESOLUTION-angle;
 	
+	
+	#if AS5050_AUTO_ERROR_HANDLING
+	switch(data&(RES_ALARM_HIGH|RES_ALARM_LOW)){
+		case RES_ALARM_HIGH: //gain too high, decrease gain
+			gain=read(REG_GAIN_CONTROL);		//get information about current gain
+			write(REG_GAIN_CONTROL,--gain); 	//increment gain and send it back
+		break;
+		case RES_ALARM_LOW: //gain too low, increase gain
+			gain=read(REG_GAIN_CONTROL); 		//get information about current gain
+			write(REG_GAIN_CONTROL,++gain); 	//increment gain and send it back
+		break;
+			default:handleErrors();
+		break;
+	}
+	#endif		
+		
 	return angle;
 }
 
@@ -259,40 +274,80 @@ void AS5050::setHome(){
     _init_angle=0;
 }
 
+
 unsigned int AS5050::handleErrors(){  //now, handle errors: 
-  unsigned int error_t=error.transaction; //save current register
-  //We have two errors to look at: 
-  //error.transaction indicates the basic error types, pulled out of reading angles and
-  //general data.
-  if(error.transaction&(RES_ALARM_HIGH|RES_ALARM_LOW)){
-    //Handle errors here, so end users don't have to care
-    switch(error_t&(RES_ALARM_HIGH|RES_ALARM_LOW)){
-      case RES_ALARM_HIGH: //gain too high, decrease gain
-        gain=read(REG_GAIN_CONTROL); //get information about current gain
-        write(REG_GAIN_CONTROL,--gain);  //increment gain and send it back
-        break;
-      case RES_ALARM_LOW: //gain too low, increase gain
-        gain=read(REG_GAIN_CONTROL); //get information about current gain
-        write(REG_GAIN_CONTROL,++gain); //increment gain and send it back
-        break;
-      default://General errors
-        //TODO Read and handle DAC overflow issues and the like.
-        //Currently just disregards everything and exits.  
-        break;
-      }//switch
+	error.status=read(REG_ERROR_STATUS);
+	
+	//If we don't have any standing errors, then quickly bypass all the checks
+	if(error.status){
+		if(REG_ERROR_STATUS & ERR_PARITY){
+			//set high if the parity is wrong
+			//Avoid doing something insane and assume we'll come back to 
+			//this function and try again with correct data
+			return error.status;
+		}
+		
+		/*
+		* Gain problems, automatically adjust
+		*/
+		if(REG_ERROR_STATUS & ERR_DSPAHI){										int gain=read(REG_GAIN_CONTROL);	//get information about current gain
+			write(REG_GAIN_CONTROL,--gain); 	//increment gain and send it back
+		}
+		else if(REG_ERROR_STATUS & ERR_DSPALO){
+			int gain=read(REG_GAIN_CONTROL); 	//get information about current gain
+			write(REG_GAIN_CONTROL,++gain); 	//increment gain and send it back
+		}
+		
+		/*
+		* Chip Failures, can be fixed with a reset
+		*/
+		if(REG_ERROR_STATUS & ERR_WOW){
+			//After a read, this gets set low. If it's high, there's an internal
+			//deadlock, and the chip must be reset
+			write(REG_SOFTWARE_RESET,DATA_SWRESET_SPI);
+		}
+		if(REG_ERROR_STATUS & ERR_DSPOV){
+			//CORDIC overflow, meaning input signals are too large. 
+			//Gain adjustments should take care of this
+			write(REG_SOFTWARE_RESET,DATA_SWRESET_SPI);
+		}
+			
+		/*
+		* Hardware issues. These need to warn the user somehow
+		*/
+		//TODO figure out some sane warning! This is not a good thing to have happen
+		if(REG_ERROR_STATUS & ERR_DACOV){
+			//This indicates a Hall effect sensor is being saturated by too large of 
+			//a magnetic field. This usually indicates a hardware failure such as a magnet 
+			//being displaced
+		}
+		if(REG_ERROR_STATUS & ERR_RANERR){
+			//Accuracy is decreasing due to increased tempurature affecting internal current source 
+		}
+			
+		/*
+		* Reasonably harmless errors that can be fixed without reset
+		*/
+		if(REG_ERROR_STATUS & ERR_MODE){
+			//set high if the chip is measuring an angle, otherwise low
+		}
+		if(REG_ERROR_STATUS & ERR_CLKMON){
+			//The clock cycles are not correct			
+		}
+		if(REG_ERROR_STATUS & ERR_ADDMON){
+			//set high when an address is incorrect for the last operation
+		}
+		
+	//This command returns 0 on successful clear
+	//otherwise, this command can handle it later
+	error.status=read(REG_CLEAR_ERROR) ;
 
-    error.transaction=0;               //Reset the transaction error register
+	//If the error is still there, reset the AS5050 to attempt to fix it
+	#if AS5050_RESET_ON_ERRORS==1
+	if(error.status)write(REG_SOFTWARE_RESET,DATA_SWRESET_SPI);
+	#endif
+	}
 
-    //This command returns 0 on successful clear
-    //otherwise, this command can handle it later
-    error.status=read(REG_CLEAR_ERROR) ;
-
-    //If the error is still there, reset the AS5050 to remove them
-    #if AS5050_RESET_ON_ERRORS==1
-    if(error.status)write(REG_SOFTWARE_RESET,DATA_SWRESET_SPI);
-    #endif
-    }//if
-  
-  return error.status; 
+	return error.status; 
 };
 
