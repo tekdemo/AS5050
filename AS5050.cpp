@@ -63,10 +63,8 @@ AS5050::AS5050(byte pin, byte spi_speed){
   //pull pin mode low to assert slave
   //digitalWrite(_pin,LOW);
 
-  //Reboot the chip, in case there were issues during various transmissions
-  write(REG_MASTER_RESET,0x0);
-  
-  
+  //Prepare the chip
+  write(REG_MASTER_RESET,0x0); //do a full reset in case the chip glitched in the last power cycle
   //Read angle twice to initialize chip and get to a known good state
   //Reading once won't work, as _last_angle will be set incorrectly
   angle();
@@ -74,8 +72,8 @@ AS5050::AS5050(byte pin, byte spi_speed){
   //angle() will glitch on startup if it's >768, reset it
   rotations=0;
   
-  //Set to True to reverse the angle returned by the library
-  mirror=false;
+  //By default, we don't want the angle to be reversed
+  mirrored=true;
 };
 
 unsigned int AS5050::send(unsigned int reg_a){
@@ -93,7 +91,6 @@ unsigned int AS5050::send(unsigned int reg_a){
 
   digitalWrite(_pin,HIGH);	//End Transaction
   SPI.end();
-  
   return response.value; 
 };
 
@@ -137,110 +134,65 @@ unsigned int AS5050::write(unsigned int reg,unsigned int data){
   data=send(REG_NOP); //Get confirmation from chip
         
   //save error and parity data
-  error.transaction=data & (RES_ERROR_FLAG); //save error data
-  error.parity=__builtin_parity(data&(~RES_PARITY)) != (data&RES_PARITY);
-  error.transaction|=error.parity;
-  error.transaction|=data&RES_ERROR_FLAG;
+  error.parity|=__builtin_parity(data&(~RES_PARITY)) != (data&RES_PARITY); //save parity errors
+  error.transaction=error.parity; //save error data
+  error.transaction|=reg&RES_ERROR_FLAG;
 
- 
   return data;      //remove parity and EF bits and return data. 
 };  
-
-int AS5050::raw_angle(){
-	//This function strips out the error and parity 
-	//data in the data frame, and handles the errors
-	unsigned int data;
-	int angle;
-	
-	data=read(REG_ANGLE);
-	/* Response from chip is this:
-	14 | 13 | 12 ... 2                       | 1  | 0
-	AH | AL |  <data 10bit >                 | EF | PAR
-	*/
-
-	//Parity data is generated in read() function
-	
-	//TODO this needs some work to avoid magic numbers
-	angle=(data&0x3FFE)>>2; //strip away alarm bits, then parity and error flags
-	
-	//Allow for the user to mirror the rotation, in case the angle seems backwards
-	if(mirror)angle=AS5050_ANGULAR_RESOLUTION-angle;
-	
-	
-	#if AS5050_AUTO_ERROR_HANDLING
-	switch(data&(RES_ALARM_HIGH|RES_ALARM_LOW)){
-		case RES_ALARM_HIGH: //gain too high, decrease gain
-			gain=read(REG_GAIN_CONTROL);		//get information about current gain
-			write(REG_GAIN_CONTROL,--gain); 	//increment gain and send it back
-		break;
-		case RES_ALARM_LOW: //gain too low, increase gain
-			gain=read(REG_GAIN_CONTROL); 		//get information about current gain
-			write(REG_GAIN_CONTROL,++gain); 	//increment gain and send it back
-		break;
-			default:handleErrors();
-		break;
-	}
-	#endif		
-		
-	return angle;
-}
-
-
+  
 int AS5050::angle(){
-	unsigned int anglesum=0;
-	int angle;
-	int last_sample=_last_angle;
-	int _rotations=rotations; //work with a local copy to make function re-entrant when called from interrupts
-	
-	
-	/*BUG : near the zerog crossing, one of the samples will jump to 1024 
-	The resulting data looks like this:
-	1024
-	1024
-	5
-	1020
-	which obviously has a REALLY bad average of 768. Need to scan for 
-	differences of 512 or more and then promote or demote the value, or 
-	take care of rollovers within each scan
-	*/
-	//TODO until the above bug is fixed, remove loop
-	for(byte i=0;i<NUM_ANGLE_SAMPLES; i++){
-	
-		angle=raw_angle();
-		
-		//We need to make sure that there's no parity errors, or else our angle will be corrupted.
-		if( error.parity ){
-			//undo the latest read, and use the last known good data
-			angle=last_sample;
-		}
-		
-		//keep up our running sum
-		anglesum+=angle;
+  //This function strips out the error and parity 
+  //data in the data frame, and handles the errors
+  unsigned int data=read(REG_ANGLE);
+  
+  /* Response from chip is this:
+   14 | 13 | 12 ... 2                       | 1  | 0
+   AH | AL |  <data 10bit >                 | EF | PAR
+  */
+  
+  //save error data to the error register
+  //Check parity of transaction
+  //Save the parity error for analysis
+  error.parity=__builtin_parity(data&(~RES_PARITY)) != (data&RES_PARITY);
+  error.transaction|=error.parity;
+  //Save angular errors
+  error.transaction=(data|RES_ALARM_HIGH|RES_ALARM_LOW);
 
+  
+  
+  //Automatically handle errors if we've enabled it
+  #if AS5050_AUTO_ERROR_HANDLING==1
+  if(error.transaction){
+    handleErrors();
+    //If there's a parity error, the angle might be invalid so prevent glitching by swapping in the last angle
+    if(error.transaction&RES_PARITY) return _last_angle;
+  }
+  #endif
+  
+  //TODO this needs some work to avoid magic numbers
+  int angle=(data&0x3FFE)>>2; //strip away alarm bits, then parity and error flags
 
-		//track rollovers for continous angle monitoring
-		if(last_sample>768 && angle<=256)_rotations+=1;
-		else if(last_sample<256 && angle>=768)_rotations-=1;
-		
-		//preserve the good data for future possible errors
-		last_sample=angle;
+  //Allow the user to reverse the logical rotation
+  if(mirrored){angle=(AS5050_ANGULAR_RESOLUTION-1)-angle;}
+  
+  //track rollovers for continous angle monitoring
+  if(_last_angle>768 && angle<=256)rotations+=1;
+  else if(_last_angle<256 && angle>=768)rotations-=1;
+  _last_angle=angle;
 
-		
-		//If we did encounter errors, we need to correct them before the next sample.
-		if(error.transaction){	handleErrors();	}
+  return angle;
 
-		//TODO make sure that this can run continuously without exceeding chip hold times
-		//delayMicroseconds(10);
-	}
-
-	//average samples and find true angle
-	angle=(anglesum+NUM_ANGLE_SAMPLES/2)/NUM_ANGLE_SAMPLES; //the anglesum+numsamples/2 performs fair rounding
-
-	//Update the globals
-	rotations=_rotations;
-	_last_angle=angle;
-	return angle;
 }
+int AS5050::angle(byte nsamples){
+	int sum=0;
+	for(byte i=0;i<nsamples;i++){
+		sum+=angle();
+	}
+	//this performs fair rounding on arbitrary integers
+	return (sum+nsamples/2)/nsamples;
+}
+
 
 float AS5050::angleDegrees(){
     //Rewrite of arduino's map function, to make sure we don't lose resolution
@@ -280,7 +232,6 @@ void AS5050::setHome(){
     rotations=0;
     _init_angle=0;
 }
-
 
 unsigned int AS5050::handleErrors(){  //now, handle errors: 
 	error.status=read(REG_ERROR_STATUS);

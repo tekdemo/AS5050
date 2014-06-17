@@ -49,15 +49,6 @@
   #define AS5050_RESET_ON_ERRORS 1
 #endif
 
-//Number of averaged samples for a given angle
-//You really want this to be a multiple of 2 so the compiler can optimize it
-#ifndef NUM_ANGLE_SAMPLES
-  #define  NUM_ANGLE_SAMPLES 4
-#endif
-
-
-
-
 //Command values for reading and writing
 #define AS_WRITE  (0x0000)
 #define AS_READ   (0x8000)
@@ -67,7 +58,7 @@
 Shifted 1 to make room for parity bit
 OR with AS_READ/AS_WRITE before sending command
 */
-#define REG_POWER_ON_RESET (0x3F22) //write 0x5A to this to deactivate power on reset
+#define REG_POWER_ON_RESET (0x3F22)
 #define REG_SOFTWARE_RESET (0x3C00) 
 #define REG_MASTER_RESET   (0x33A5)
 #define REG_CLEAR_ERROR    (0x3380)/*Read to reset errors*/
@@ -90,23 +81,20 @@ OR with AS_READ/AS_WRITE before sending command
 #define RES_ERROR_ANGLE    (RES_PARITY| RES_ERROR_FLAG|RES_ALARM_HIGH|RES_ALARM_LOW) 
 
 //Error Status Register
-#define ERR_PARITY    (1<<0)
-#define ERR_CLKMON    (1<<1)
-#define ERR_ADDMON    (1<<2)
-//#define RES_ERR_RESERVED3  (1<<3)
-#define ERR_WOW       (1<<4)
-#define ERR_MODE      (1<<5)	
-//#define RES_ERR_RESERVED6  (1<<6)
-//#define RES_ERR_RESERVED7  (1<<7)
-#define ERR_DACOV     (1<<8)	// DAC overflow
-#define ERR_DSPOV     (1<<9)    //DSP PRocessor overflow
-#define ERR_RANERR    (1<<10)	//Range error
-#define ERR_DSPALO    (1<<11)	//DSP Alarm low
-#define ERR_DSPAHI    (1<<12)	//DSP Alarm High
-//#define RES_ERR_RESERVED13  (1<<13)
-
-
-
+#define ERR_PARITY    (1<<13)
+#define ERR_CLKMON    (1<<12)
+#define ERR_ADDMON    (1<<11)
+//#define RES_ERR_RESERVED3  (1<<10)
+#define ERR_WOW       (1<<9)
+#define ERR_MODE      (1<<8)	
+//#define RES_ERR_RESERVED6  (1<<7)
+//#define RES_ERR_RESERVED7  (1<<6)
+#define ERR_DACOV     (1<<5)	// DAC overflow
+#define ERR_DSPOV     (1<<4)    //DSP PRocessor overflow
+#define ERR_RANERR    (1<<3)	//Range error
+#define ERR_DSPALO    (1<<2)	//DSP Alarm low
+#define ERR_DSPAHI    (1<<1)	//DSP Alarm High
+//#define RES_ERR_RESERVED13  (1<<0)
 
 //Set various limits on some values
 #define AS5050_ANGULAR_RESOLUTION 1024
@@ -136,8 +124,8 @@ class AS5050{
     unsigned int write(unsigned int,unsigned int);
     unsigned int handleErrors();
     //These functions return the physical angle on the chip
-    int raw_angle();	//returns raw angle direct from chip
-    int angle();	//returns sampled averages and counts rollovers
+    int angle();
+    int angle(byte nsamples);
     float angleDegrees();
     float angleRad();
     //These functions return the absolute angle from initial startup
@@ -166,14 +154,12 @@ class AS5050{
     
     //Keep track of how many full rotations we've gone through
     int rotations;
+	bool mirrored;
 
-    //Set to true to reverse the angles returned by this library
-    bool mirror;
     private:
         byte _pin;
         int _last_angle;
         int _init_angle;
-
 };
 
 #endif
